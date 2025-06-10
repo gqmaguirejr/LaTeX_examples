@@ -1,0 +1,173 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{expl3} % Keep expl3 loaded for regex cleanup
+\usepackage{pgffor} % For \foreach loop and pgfkeys
+\usepackage{xstring} % For string parsing
+\usepackage{etoolbox} % For general conditionals
+\usepackage{starray} % For array definitions
+
+% --- MAIN MAKEATLETTER/MAKEATOTHER BLOCK FOR ENTIRE PREAMBLE ---
+\makeatletter
+
+% --- Supervisor Data Storage (PGFKEYS + STARRAY) ---
+
+% 1. PGFKEYS SETUP: Define the keys for supervisor properties
+% This defines the structure for each supervisor record.
+\pgfkeys{/kththesis/supervisor/properties/.cd,
+    lastname/.initial={}, % last name
+    firstname/.initial={}, % first name
+    kthid/.initial={},
+    email/.initial={},
+    organization/.initial={}, % For 'Other organisation'
+    school/.initial={},      % For KTH organisation (L1)
+    department/.initial={},  % For KTH organisation (L2)
+    .unknown/.code={\PackageWarning{kththesis}{Unknown supervisor key '\pgfkeyscurrentkey'}},
+    %.global=true, % Make all assignments within this family global
+}
+
+
+
+% 2. STARRAY SETUP: Declare the array to hold supervisor records (STANDARD LaTeX command)
+% --- Expl3 Definitions (ALL expl3 definitions here, within ONE ExplSyntaxOn/Off block) ---
+\ExplSyntaxOn
+%\newarray{\SupervisorRecords}
+\starray_new:n {SupervisorRecords}
+\starray_def_prop:nnn {SupervisorRecords}{lastname}{}
+\starray_def_prop:nnn {SupervisorRecords}{firstname}{}
+\starray_def_prop:nnn {SupervisorRecords}{kthid}{}
+\starray_def_prop:nnn {SupervisorRecords}{email}{}
+\starray_def_prop:nnn {SupervisorRecords}{organization}{}
+\starray_def_prop:nnn {SupervisorRecords}{school}{}
+\starray_def_prop:nnn {SupervisorRecords}{department}{}
+
+
+
+
+% --- Helper Expl3 Macro to ADD SUPERVISOR DATA TO STARRAY ---
+% This handles all expl3 and pgfkeys parsing for \addsupervisor
+% #1 = A string of key=value pairs for one supervisor
+\newcommand{\addsupervisor}[1]{%
+    % CRITICAL FIX: Reset pgfkeys values and then parse the input #1
+    \pgfkeys{/kththesis/supervisor/properties/.cd, #1}% Parse the input for THIS supervisor
+
+    \pgfkeys{/kththesis/supervisor/properties/lastname/.show~value}
+    \pgfkeys{/kththesis/supervisor/properties/firstname/.show~value}
+    \pgfkeysgetvalue{/kththesis/supervisor/properties/lastname}{\l_lastname_tl}
+
+    \tl_if_empty:NTF \l_lastname_tl{
+    Noting~to~process
+    } % end of true case
+    { % start of false case
+    start~of~false~case
+    % Get the current count of records (which will be the new 0-based index)
+    \starray_get_cnt:nN {SupervisorRecords} \l_tmpa_int 
+    \show \l_tmpa_int 
+    % The new term ID will be this count (0-based: 0, 1, 2...)
+    \tl_set:Nx \l_tmpa_tl { \int_use:N \l_tmpa_int } % Convert int to string "0", "1", "2" etc.
+    \show \l_tmpa_tl
+    % Explicitly create a new term with this numerical ID.
+    \starray_new_term:nn {SupervisorRecords}{\l_tmpa_tl} 
+    %\pgfkeys{/kththesis/supervisor/properties/.initialise}
+    
+
+    \def\l_lastname_tl{}
+    \def\l_firstname_tl{}
+    \def\l_kthid_tl{}
+    \def\l_email_tl{}
+    \def\l_organization_tl{}
+    \def\l_school_tl{}
+    \def\l_department_tl{}
+    % Now, set properties in starray for the newly added term using the captured values.
+    % These values are from the \l_pgfkeys_temp_... macros set by pgfkeys' .store in handlers.
+    \pgfkeysgetvalue{/kththesis/supervisor/properties/lastname}{\l_lastname_tl}
+
+    
+    \pgfkeysgetvalue{/kththesis/supervisor/properties/firstname}{\l_firstname_tl}
+    \show \l_firstname_tl
+    \pgfkeysgetvalue{/kththesis/supervisor/properties/kthid}{\l_kthid_tl}
+    \pgfkeysgetvalue{/kththesis/supervisor/properties/email}{\l_email_tl}
+    \pgfkeysgetvalue{/kththesis/supervisor/properties/organization}{\l_organization_tl}
+    \pgfkeysgetvalue{/kththesis/supervisor/properties/school}{\l_school_tl}
+    \pgfkeysgetvalue{/kththesis/supervisor/properties/department}{\l_department_tl}
+
+    \show \string lastname\\
+    \show \tl_use:N \l_tmpa_tl{}\\
+    \starray_set_prop:nnV {SupervisorRecords[\tl_use:N \l_tmpa_tl]}{lastname}{\l_lastname_tl} %% store
+    \show \string lastname2\\
+    \show \tl_use:N \l_tmpa_tl\\
+
+
+    \tl_set:Nx \l_tmpa_tl { \int_use:N \l_tmpa_int }
+    \show \string firstname\\
+    \show \tl_use:N \l_tmpa_tl\\
+    \starray_set_prop:nnV {SupervisorRecords[\tl_use:N \l_tmpa_tl]}{firstname}{\l_firstname_tl} %% store
+
+    \tl_set:Nx \l_tmpa_tl { \int_use:N \l_tmpa_int }
+    \show \string kthid\\
+    \show \tl_use:N \l_tmpa_tl\\
+    \starray_set_prop:nnV {SupervisorRecords[\tl_use:N \l_tmpa_tl]}{kthid}{\l_kthid_tl} %% store
+
+    \tl_set:Nx \l_tmpa_tl { \int_use:N \l_tmpa_int }
+    \show \string email\\
+    \show \tl_use:N \l_tmpa_tl\\
+    \starray_set_prop:nnV {SupervisorRecords[\tl_use:N \l_tmpa_tl]}{email}{\l_email_tl} %% store
+
+    \tl_set:Nx \l_tmpa_tl { \int_use:N \l_tmpa_int }
+    \show \string organization\\
+    \show \tl_use:N \l_tmpa_tl\\
+    \starray_set_prop:nnV {SupervisorRecords[\tl_use:N \l_tmpa_tl]}{organization}{\l_organization_tl} %% store
+
+
+    \tl_set:Nx \l_tmpa_tl { \int_use:N \l_tmpa_int }
+    \show \string school\\
+    \show \tl_use:N \l_tmpa_tl\\
+    \starray_set_prop:nnV {SupervisorRecords[\tl_use:N \l_tmpa_tl]}{school}{\l_school_tl} %% store
+
+
+    \tl_set:Nx \l_tmpa_tl { \int_use:N \l_tmpa_int }
+    \show \string department\\
+    \show \tl_use:N \l_tmpa_tl\\
+    \starray_set_prop:nnV {SupervisorRecords[\tl_use:N \l_tmpa_tl]}{department}{\l_department_tl} %% store
+
+    } % end of false case 
+    
+    % reinitialize the pgfkeys - for the next call of the command
+    % otherwise the values persit in the pgfkey storage
+    \pgfkeyssetvalue{/kththesis/supervisor/properties/lastname}{}
+    \pgfkeyssetvalue{/kththesis/supervisor/properties/firstname}{}
+    \pgfkeyssetvalue{/kththesis/supervisor/properties/kthid}{}
+    \pgfkeyssetvalue{/kththesis/supervisor/properties/email}{}
+    \pgfkeyssetvalue{/kththesis/supervisor/properties/organization}{}
+    \pgfkeyssetvalue{/kththesis/supervisor/properties/school}{}
+    \pgfkeyssetvalue{/kththesis/supervisor/properties/department}{}
+
+
+}
+
+
+\makeatother % End of main makeatletter/makeatother block for preamble
+
+% --- DOCUMENT START ---
+\begin{document}
+\section{Show basic array}
+\ExplSyntaxOn
+\starray_show_def_in_text:n {SupervisorRecords}\\
+\par Terms:
+\starray_show_terms_in_text:n {SupervisorRecords}\\
+\ExplSyntaxOff
+
+% Populate Supervisor Data (using addsupervisor macro)
+\addsupervisor{lastname="Maguire", firstname="Gerald", kthid="uld12345", email="maguire@kth.se", school="EECS", department="Computer Science"}
+\addsupervisor{lastname="Doe", firstname="Jane", email="jane.doe@example.com", organization="University of Example"}
+\addsupervisor{lastname="Smith", firstname="John", school="ITM"}
+\addsupervisor{lastname={}} % Example of an empty supervisor (will be skipped in JSON output)
+
+\section{Show basic array}
+\ExplSyntaxOn
+\starray_show_def_in_text:n {SupervisorRecords}\\
+\par Terms:
+\starray_show_terms_in_text:n {SupervisorRecords}\\
+\ExplSyntaxOff
+
+
+\end{document}
