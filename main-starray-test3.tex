@@ -203,7 +203,15 @@
 Get~lastname~of~first~supervisor:~\lastname
 \ExplSyntaxOff
 
-\subsection{Iterate through all supervisors}
+\section{Iterating over all terms}
+\ExplSyntaxOn
+\starray_iterate_over:nn {SupervisorRecords}
+  {
+    \noindent some~text ~ supervisor's ~ last ~name:~ \starray_get_prop:nn {SupervisorRecords} {lastname} ~and~ (if~ any)~ kthid:~ \starray_get_prop:nn {SupervisorRecords} {kthid} \par
+  }
+\ExplSyntaxOff
+
+\subsection{Another way of iterating through all supervisors}
 \ExplSyntaxOn
 \starray_get_cnt:nN {SupervisorRecords} \l_tmpa_int
 \int_compare:nNnTF {\l_tmpa_int} = {0}
@@ -214,8 +222,6 @@ Get~lastname~of~first~supervisor:~\lastname
         Supervisor~{\i}:~\lastname\par
     }
   }
-\par
-
 \ExplSyntaxOff
 
 \end{document}
