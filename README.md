@@ -10,6 +10,6 @@ First attempt
 Second attempt
 
 ## main-starray-test3.tex
-Third attempt after Alceu Frigeri set a response on 2025-06-10
+Third attempt after Alceu Frigeri sent a response on 2025-06-10
 
 The code now takes a set of supervisors in pgfkeys format and fills in a starray. Given this starry, one can no take data out of it.
