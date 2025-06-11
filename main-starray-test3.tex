@@ -154,6 +154,43 @@
 
 \ExplSyntaxOff
 
+\ExplSyntaxOn
+\DeclareDocumentCommand \supervisorNames {}
+{
+\tl_new:N \g_supervisor_names_tl % Declare the global token list variable
+\tl_new:N \l_lastnameI_tl         % Declare a local token list variable for the string to add
+\tl_new:N \l_firstnameI_tl         % Declare a local token list variable for the string to add
+
+% Initialize \g_supervisor_names_tl
+\tl_set:Nn \g_supervisor_names_tl {}
+
+
+\int_new:N \l_localcnt_int
+\int_new:N \l_nextToLast_int
+\int_new:N \l_aux_int
+\int_set:Nn \l_aux_int { 1 }
+\starray_get_cnt:nN {SupervisorRecords} \l_localcnt_int
+\starray_get_cnt:nN {SupervisorRecords} \l_nextToLast_int
+\int_incr:N \l_localcnt_int
+\int_while_do:nNnn { \l_aux_int } < { \l_localcnt_int } {
+    %     code using .... {SupervisorRecords[\l_aux_int]}
+    %    like
+      \starray_get_prop:nnN {SupervisorRecords[\int_use:N \l_aux_int]} {lastname} {\l_lastnameI_tl}
+      \starray_get_prop:nnN {SupervisorRecords[\int_use:N \l_aux_int]} {firstname} {\l_firstnameI_tl}
+      \int_compare:nNnTF {\l_aux_int} = {1}
+        {\tl_set:Ne \g_supervisor_names_tl { \l_firstnameI_tl {~} \l_lastnameI_tl }}
+        {\int_compare:nNnTF {\l_aux_int} = {\l_nextToLast_int}
+            {\tl_put_right:Nn \g_supervisor_names_tl { ,~and~ }}
+            {\tl_put_right:Nn \g_supervisor_names_tl { ,~ }}
+            \tl_put_right:Ne \g_supervisor_names_tl { \l_firstnameI_tl {~} \l_lastnameI_tl }
+        }
+        {} % nothing more to do - there is only one author 
+    \int_incr:N \l_aux_int
+  }
+\g_supervisor_names_tl
+}
+\ExplSyntaxOff
+
 
 % --- DOCUMENT START ---
 % GQMJR: cleaned-up the main document
@@ -223,5 +260,8 @@ Get~lastname~of~first~supervisor:~\lastname
     }
   }
 \ExplSyntaxOff
+
+\section{alternative iterator approach 1}
+\supervisorNames
 
 \end{document}
