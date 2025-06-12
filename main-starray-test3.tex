@@ -162,7 +162,7 @@
 \tl_new:N \l_firstnameI_tl         % Declare a local token list variable for the string to add
 
 % Initialize \g_supervisor_names_tl
-\tl_set:Nn \g_supervisor_names_tl {}
+\tl_set:Nn \l_supervisor_names_tl {}
 
 
 \int_new:N \l_localcnt_int
@@ -178,16 +178,16 @@
       \starray_get_prop:nnN {SupervisorRecords[\int_use:N \l_aux_int]} {lastname} {\l_lastnameI_tl}
       \starray_get_prop:nnN {SupervisorRecords[\int_use:N \l_aux_int]} {firstname} {\l_firstnameI_tl}
       \int_compare:nNnTF {\l_aux_int} = {1}
-        {\tl_set:Ne \g_supervisor_names_tl { \l_firstnameI_tl {~} \l_lastnameI_tl }}
+        {\tl_set:Ne \l_supervisor_names_tl { \l_firstnameI_tl {~} \l_lastnameI_tl }}
         {\int_compare:nNnTF {\l_aux_int} = {\l_nextToLast_int}
-            {\tl_put_right:Nn \g_supervisor_names_tl { ,~and~ }}
-            {\tl_put_right:Nn \g_supervisor_names_tl { ,~ }}
-            \tl_put_right:Ne \g_supervisor_names_tl { \l_firstnameI_tl {~} \l_lastnameI_tl }
+            {\tl_put_right:Nn \l_supervisor_names_tl { ,~and~ }}
+            {\tl_put_right:Nn \l_supervisor_names_tl { ,~ }}
+            \tl_put_right:Ne \l_supervisor_names_tl { \l_firstnameI_tl {~} \l_lastnameI_tl }
         }
         {} % nothing more to do - there is only one author 
     \int_incr:N \l_aux_int
   }
-\g_supervisor_names_tl
+\l_supervisor_names_tl
 }
 \ExplSyntaxOff
 
@@ -261,7 +261,50 @@ Get~lastname~of~first~supervisor:~\lastname
   }
 \ExplSyntaxOff
 
-\section{alternative iterator approach 1}
+\section{An alternative iterator approach}
 \supervisorNames
+
+
+\section{Yet another iterator approach - output JSON-like output}
+
+For the moment, we will just output the SupervisorRecords in a JSON-like format; later, they will be changed into writes to a file that can be attached to the PDF file.
+
+\ExplSyntaxOn
+\starray_reset_iter:n {SupervisorRecords}  % this will, in practice, set the current term index to 1
+\bool_new:N \l_flag_bool
+\bool_set_false:N \l_flag_bool
+\bool_until_do:Nn \l_flag_bool 
+ {
+   % do something
+    \starray_get_prop:nnN {SupervisorRecords} {lastname} \l_lastnameI_tl
+    \starray_get_prop:nnN {SupervisorRecords} {firstname} \l_firstname_tl
+    \starray_get_prop:nnN {SupervisorRecords} {kthid} \l_kthid_tl
+    \starray_get_prop:nnN {SupervisorRecords} {email} \l_email_tl
+    \starray_get_prop:nnN {SupervisorRecords} {organization} \l_organization_tl
+    \starray_get_prop:nnN {SupervisorRecords} {school} \l_school_tl
+    \starray_get_prop:nnN {SupervisorRecords} {department} \l_department_tl
+    
+    \starray_get_iter:nN {SupervisorRecords} \l_aux_int   % this will contain the index number of the current one
+    \int_compare:nNnTF {\l_aux_int} = {1} {} {,\par}
+    "Supervisor\int_use:N \l_aux_int”: \{ ”Last name”:~”\l_lastnameI_tl”
+    ,~”First name”:~”\l_firstname_tl”
+    \tl_if_empty:NTF \l_kthid_tl {} {,~”Local User Id”:~”\l_kthid_tl”}
+    \tl_if_empty:NTF \l_email_tl {} {,~”E-mail”:~”\l_email_tl”}
+    \tl_if_empty:NTF \l_school_tl {
+        \tl_if_empty:NTF \l_organization_tl {} {,~”Other~organisation”:~”\l_organization_tl”}
+    } {,~”organisation”: \{”L1”:~”\l_school_tl”}
+         \tl_if_empty:NTF \l_department_tl {} {,~”L2”:~”\l_department_tl”}
+        \}
+    \}
+ % ...
+
+  % at the very end
+    \starray_next_iter:nTF {SupervisorRecords}
+    { } 
+    { \bool_set_true:N \l_flag_bool } % this will end the loop.
+  
+ }
+\ExplSyntaxOff
+
 
 \end{document}
