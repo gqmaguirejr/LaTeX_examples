@@ -1,0 +1,121 @@
+\documentclass{article}
+\usepackage{etoolbox} % For various conditionals (if needed)
+\usepackage{xparse}   % Provides \NewDocumentCommand (and loads expl3)
+\usepackage{expl3}    % Explicitly loads expl3 layer
+
+\makeatletter
+% --- Declare your default values (Example, replace with your actual defaults) ---
+% These should be standard LaTeX macros, defined outside \ExplSyntaxOn.
+\def\kth@default@authorName{Author Name Placeholder}
+\def\kth@default@thesisTitle{Thesis Title Placeholder}
+\def\kth@default@presentationDate{2025-01-01} 
+
+% --- Define the actual stored values (Simulated, these would come from your template's input macros) ---
+% These are standard LaTeX macros.
+\def\my@actual@authorName{Author Name Placeholder} % Still default for first check
+\def\my@actual@thesisTitle{My Awesome Thesis Title} % Changed for first check
+\def\my@actual@presentationDate{2025-01-01} % Still default for first check
+
+% --- Expl3 Definitions for Sanity Check ---
+% All expl3 commands and variable declarations must be within \ExplSyntaxOn / \ExplSyntaxOff.
+\ExplSyntaxOn
+
+% --- Global Counters and Sequence for Sanity Check Results ---
+\int_new:N \g_kth@defaultCount_int       % Counts values that are still at default
+\int_new:N \g_kth@totalCheckedCount_int   % Counts total values checked
+\seq_new:N \g_kth@unchangedValues_seq     % Stores names of values that are still at default
+
+% --- Helper Macro to Compare a Value with its Default (expl3 syntax) ---
+% #1 = A descriptive name for the value (e.g., "Author Name")
+% #2 = The actual stored value (will be expanded via 'e' type)
+% #3 = The default value (will be expanded via 'e' type)
+\cs_new_protected:Npn \kth@check@value:nnn #1#2#3 {
+    \typeout{Checking #1: Actual="#2", Default="#3"} % Debugging: shows in .log file
+    \int_gincr:N \g_kth@totalCheckedCount_int % Increment global total count
+    \str_if_eq:eeTF {#2}{#3} % Robust string comparison (expands both arguments 'e')
+    { % True branch: Value is still at default
+        \typeout{ -- Still at default value} % Debugging
+        \int_gincr:N \g_kth@defaultCount_int % Increment global default count
+        \seq_gput_right:Nn \g_kth@unchangedValues_seq {#1} % Add descriptive name to global sequence
+    }
+    { % False branch: Value has been changed
+        \typeout{ -- Value changed (OK)} % Debugging
+        % Do nothing, as per requirement "warning message per unchanged value"
+    }
+}
+ 
+% --- The Main Sanity Check Macro (expl3 version) ---
+% This macro runs the checks and issues warnings.
+\cs_new_protected:Npn \kth@perform@sanity@check_expl3: {
+    % Reset counters and sequence for each run
+    \int_gzero:N \g_kth@defaultCount_int
+    \int_gzero:N \g_kth@totalCheckedCount_int
+    \seq_gclear:N \g_kth@unchangedValues_seq
+
+    % --- Call expl3 helper for each item to check ---
+    % Pass the content of the standard LaTeX macros directly.
+    \kth@check@value:nnn {Author~Name}{\my@actual@authorName}{\kth@default@authorName}
+    \kth@check@value:nnn {Thesis~Title}{\my@actual@thesisTitle}{\kth@default@thesisTitle}
+    \kth@check@value:nnn {Presentation~Date}{\my@actual@presentationDate}{\kth@default@presentationDate}
+
+    % --- Issue Warnings based on results (using expl3 variables and sequence) ---
+    \int_compare:nNnTF { \g_kth@totalCheckedCount_int } = { 0 }
+    { % No values were checked (e.g., if list of checks is empty)
+        % No warning needed
+    }
+    { % Values were checked
+        \int_compare:nNnTF { \g_kth@defaultCount_int } = { \g_kth@totalCheckedCount_int } % All values are at default
+        { % All values are at default
+            \PackageWarning{kththesis}{The~state~of~the~project~is~the~default~configuration,~please~customize~it~for~yourself.}
+        }
+        { % Some values are default, some are changed
+            \int_compare:nNnTF { \g_kth@defaultCount_int } > { 0 } % Only if there are any unchanged values
+            { % There are some unchanged values. Use \seq_use:Nnnn for formatted list.
+              % Nnnn means it uses the sequence, then a separator for the last two items,
+              % a separator for all items, and a separator for the last two items in a list of 3+.
+              % Here: {item1, item2 and item3}
+                \PackageWarning{kththesis}{Some~values~are~still~at~default.~Please~review~the~following:~\seq_use:Nnnn \g_kth@unchangedValues_seq {~and~}{,~}{,~and~} .}%
+            }
+            { % No unchanged values left (all changed)
+                % No action
+            }
+        }
+    }
+}
+\ExplSyntaxOff % End of expl3 definitions
+
+% --- Standard LaTeX wrapper macro for calling the expl3 helper ---
+% This makes the expl3-based sanity check callable from standard LaTeX mode.
+\ExplSyntaxOn
+\NewDocumentCommand{\kthPerformSanityCheck}{}
+{%
+    \kth@perform@sanity@check_expl3: % Call the expl3 helper (note the colon)
+}
+\ExplSyntaxOff % Deactivate expl3 syntax
+\makeatother
+
+\begin{document}
+\section*{Sanity Check Demonstration}
+\makeatletter
+Perform first check (Expected: "Some values are still at default..." for "Author Name" and "Presentation Date"):
+\kthPerformSanityCheck
+
+\par\vspace{1cm}
+
+% Set all values to be different from default
+\def\my@actual@authorName{Gerald Maguire}
+\def\my@actual@thesisTitle{My Final Thesis}
+\def\my@actual@presentationDate{2025-06-12}
+Perform sanity check 2 (Expected: No warning):
+\kthPerformSanityCheck
+
+\par\vspace{1cm}
+
+% Set all values back to default
+\def\my@actual@authorName{Author Name Placeholder}
+\def\my@actual@thesisTitle{Thesis Title Placeholder}
+\def\my@actual@presentationDate{2025-01-01} 
+Perform sanity check 3 (Expected: "The state of the project is the default..." warning):
+\kthPerformSanityCheck
+\makeatother
+\end{document}
