@@ -1,0 +1,135 @@
+\documentclass{article}
+\usepackage{etoolbox} % For string comparisons and conditionals, and \g@addto@macro
+\usepackage{xparse}   % For \NewDocumentCommand and robust arguments (if needed, not directly in this snippet)
+\usepackage{expl3}    % For expl3 functions like \tl_set:Nn, \regex_replace_once, \tl_use:N
+
+\makeatletter
+% --- Define your default values (Example, replace with your actual defaults) ---
+\def\kth@default@authorName{Author Name Placeholder}
+\def\kth@default@thesisTitle{Thesis Title Placeholder}
+\def\kth@default@presentationDate{2025-01-01} 
+
+% --- Define the actual stored values (Simulated, these would come from your template's input macros) ---
+\def\my@actual@authorName{Author Name Placeholder} % Still default
+\def\my@actual@thesisTitle{My Awesome Thesis Title} % Changed
+\def\my@actual@presentationDate{2025-01-01} % Still default
+
+\ExplSyntaxOn 
+% --- Global Counters for Sanity Check ---
+\int_new:N \g_kth@defaultCount_int % Counts values still at default
+\int_new:N \g_kth@totalCheckedCount_int % Counts total values checked
+
+\seq_new:N \g_kth@unchangedValues_seq % Stores names of values still at default
+
+
+% --- Helper macro to compare a value with its default ---
+% #1 = A descriptive name for the value (for warning messages)
+% #2 = The actual stored value
+% #3 = The default value
+\ExplSyntaxOn
+\cs_new_protected:Npn \kth@check@value #1#2#3 { %
+    checking~#1~"#2"~"#3"
+    \int_gincr:N \g_kth@totalCheckedCount_int % Increment total count
+    \str_if_eq:eeTF {#2}{#3}
+    {% True: Value is still at default
+    still~at~default~value
+        \int_gincr:N \g_kth@defaultCount_int
+        % Add the name of the default value to the list, followed by a comma
+        \seq_gput_right:Nn \g_kth@unchangedValues_seq {#1}%
+    }{% False: Value has been changed (no warning needed for this one)
+        % Do nothing
+        False path taken
+    }%
+}
+        
+% --- The main sanity check macro ---
+\NewDocumentCommand{\kth@perform@sanity@check}{}
+{%
+    \int_zero:N \g_kth@defaultCount_int % Reset default count
+    \int_zero:N \g_kth@totalCheckedCount_int % Reset total count
+    \seq_gclear:N \g_kth@unchangedValues_seq % Clear sequence of unchanged items for each run
+
+
+    % --- Call kthe@check@value for each item you want to check ---
+
+    \kth@check@value{Author~Name}{\my@actual@authorName}{\kth@default@authorName}
+    \kth@check@value{Thesis~Title}{\my@actual@thesisTitle}{\kth@default@thesisTitle}
+    \kth@check@value{Presentation~Date}{\my@actual@presentationDate}{\kth@default@presentationDate}
+
+    
+    % --- Issue Warnings based on results ---
+    \int_compare:nNnTF {\g_kth@totalCheckedCount_int} =  {0} % No values were even checked
+    {}% No warning needed if nothing was configured.
+    {
+       \int_compare:nNnTF {\g_kth@defaultCount_int} = {\g_kth@totalCheckedCount_int}  % All values are at default
+        {
+            \PackageWarning{kththesis}{The~state~of~the~project~is~the~default~configuration,~please~customize~it~for~yourself.}
+        }
+        { % Some values are default, some are changed
+            \int_compare:nNnTF {\g_kth@defaultCount_int} > {0} % Only if there are any unchanged values
+            { \PackageWarning{kththesis}{Some~values~are~still~at~default.~Please~review~the~following:~\seq_use:Nnnn \g_kth@unchangedValues_seq {~and~}{,~}{,~and~} .}%
+            }
+            {% nothing to do
+            }
+        }
+    }
+}
+\ExplSyntaxOff
+    
+\begin{document}
+\section*{Sanity Check Demonstration}
+Perform first check:
+\makeatletter
+\def\myArgA{ABC}
+\def\myArgB{ABC}
+\kth@check@value{Author Name}{\myArgA}{\myArgB}\\
+\kth@check@value{Author Name2}{DEF}{DEF}\\
+\kth@check@value{Author Name3}{IJK}{IJK}\\
+\kth@check@value{Author Name4}{ABC}{\myArgB}\\
+\ExplSyntaxOn
+defaultCount:~\int_use:N \g_kth@defaultCount_int\\
+unchangedValues:~\seq_use:Nnnn \g_kth@unchangedValues_seq {~and~}{,~}{,~} \\
+
+    \PackageWarning{kththesis}
+    {Some~values~are~still~at~default.~Please~review~the~following:~\seq_use:Nnnn \g_kth@unchangedValues_seq {,}{,~}{,~and~} .}%
+\ExplSyntaxOff
+
+% This will trigger the "Some values are still at default" warning
+% as Thesis Title is changed, but Author Name and Presentation Date are default.
+Perform sanity check 1:\\ 
+\kth@perform@sanity@check
+\ExplSyntaxOn
+\par
+defaultCount:~\int_use:N \g_kth@defaultCount_int\\
+unchangedValues:~\seq_use:Nnnn \g_kth@unchangedValues_seq {,~}{,~}{,~} \\
+\ExplSyntaxOff
+
+\par
+\vspace{1cm}
+\def\my@actual@authorName{Gerald Maguire} % All changed
+\def\my@actual@thesisTitle{My Awesome Thesis Title}
+\def\my@actual@presentationDate{2025-06-12}
+Perform sanity check 2:\\ 
+\kth@perform@sanity@check % This should produce no warning if all are changed.
+
+\ExplSyntaxOn
+\par
+defaultCount:~\int_use:N \g_kth@defaultCount_int\\
+unchangedValues:~\seq_use:Nnnn \g_kth@unchangedValues_seq {,~}{,~}{,~} \\
+\ExplSyntaxOff
+\par
+\vspace{1cm}
+\def\my@actual@authorName{Author Name Placeholder} % All default
+\def\my@actual@thesisTitle{Thesis Title Placeholder}
+\def\my@actual@presentationDate{2025-01-01}
+Perform sanity check 3:\\ 
+\kth@perform@sanity@check % This should produce the "all default" warning.
+
+\ExplSyntaxOn
+\par
+defaultCount:~\int_use:N \g_kth@defaultCount_int\\
+unchangedValues:~\seq_use:Nnnn \g_kth@unchangedValues_seq {,~}{,~}{,~} \\
+\ExplSyntaxOff
+
+\makeatother
+\end{document}
