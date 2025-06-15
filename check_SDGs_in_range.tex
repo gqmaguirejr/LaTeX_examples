@@ -1,0 +1,145 @@
+\documentclass{article}
+\usepackage{expl3} % Essential for expl3 functions
+\makeatletter
+% Define the user's macros for storing the SDG list
+\let\@SDGs\@empty
+\newcommand{\SDGs}[1]{\def\@SDGs{#1}}
+
+% --- Expl3 Definitions for SDG Range Check ---
+\ExplSyntaxOn
+
+% Declare expl3 variables for the check process
+\int_new:N \l_kththesis_check_min_int      % Stores the minimum allowed value
+\int_new:N \l_kththesis_check_max_int      % Stores the maximum allowed value
+\int_new:N \l_kththesis_current_item_int   % Stores the current item from the list as an integer
+\seq_new:N \g_kththesis_invalid_sdgs_seq    % Stores items from the list that are out of range
+\bool_new:N \g_kththesis_all_sdgs_valid_bool % Flag to indicate if all items were within range
+
+% --- Main function to check SDG range ---
+% #1 = comma-separated list of SDGs (e.g., "1,9")
+% #2 = minimum allowed value (e.g., 1)
+% #3 = maximum allowed value (e.g., 17)
+\cs_new_protected:Npn \kththesis_check_sdg_range:nnn #1#2#3 {
+    %checking~"#1"~"#2"~"#3"\par
+    
+    % Set min/max values for the current check
+    % Note that we have to decrement the first and increment the last
+    % as the  \int_compare_p:nNn comparison relations are < and > -- rather than <= and >=
+    \int_set:Nn \l_kththesis_check_min_int {#2}
+    \int_decr:N \l_kththesis_check_min_int
+    \int_set:Nn \l_kththesis_check_max_int {#3}
+    \int_incr:N \l_kththesis_check_max_int
+    
+    % Clear results from previous runs of this function
+    \seq_gclear:N \g_kththesis_invalid_sdgs_seq
+    \bool_gset_true:N \g_kththesis_all_sdgs_valid_bool % Assume all items are valid until proven otherwise
+    \seq_set_split:Nne \l_tmpa_seq { , }  { #1 }
+    
+    %~value~is:~\seq_use:Nnnn \l_tmpa_seq { ~and~ } { ,~ } { ,~and~ } \par
+    % Iterate through each item in the comma-separated list
+    \seq_map_variable:NNn \l_tmpa_seq \l_tmpa_tl {
+        % For robust error handling if input is not a number, consider using
+        % \int_from_tl:n and then check for errors, but for this problem,
+        % we assume numeric input.
+        %l_tmpa_tl~is:~\tl_use:N {\l_tmpa_tl}\par
+        \int_set:Nn \l_kththesis_current_item_int {\l_tmpa_tl}
+        %l_kththesis_current_item_int~is:~\int_use:N \l_kththesis_current_item_int\par
+        % Compare the current item with the min/max range
+        % \bool_lazy_and:nTF checks if (item >= min) AND (item <= max)
+        \bool_lazy_and:nnTF
+            { \int_compare_p:nNn { \l_kththesis_current_item_int } > { \l_kththesis_check_min_int } }
+            { \int_compare_p:nNn { \l_kththesis_current_item_int } < { \l_kththesis_check_max_int } }
+        { % True branch: Item is within range (do nothing, it's valid)
+        }
+        { % False branch: Item is OUT of range
+            \bool_gset_false:N \g_kththesis_all_sdgs_valid_bool % Mark the overall check as having invalid items
+            \seq_gput_right:Ne \g_kththesis_invalid_sdgs_seq {\l_tmpa_tl} % Add the _value_ of the invalid item to the sequence
+        }
+    }
+    
+}
+
+% --- Wrapper macro for easy calling from standard LaTeX mode ---
+% This macro is what you will use in your document.
+% #1 = The comma-separated list of SDGs (e.g., from \@SDGs)
+% #2 = Minimum allowed value
+% #3 = Maximum allowed value
+\newcommand{\checkSDGRange}[3]{
+    \ExplSyntaxOn % Activate expl3 syntax for the call to the expl3 function
+    \tl_if_empty:eTF {#1} {
+    Empty~list
+    }
+    {
+        % Call the expl3 core function to perform the check
+        \kththesis_check_sdg_range:nnn {#1}{#2}{#3}
+    
+        % Report results based on the flags set by the expl3 function
+        \bool_if:NTF \g_kththesis_all_sdgs_valid_bool
+        { % All items were valid
+            All~SDGs~are~within~the~range~[#2-#3].
+        }
+        { % Some items were invalid
+            The~following~SDGs~are~out~of~range~[#2-#3]:~\seq_use:Nn \g_kththesis_invalid_sdgs_seq {,~} .
+        }
+    }
+    \ExplSyntaxOff % Deactivate expl3 syntax
+}
+
+\ExplSyntaxOff % End of all expl3 definitions
+\makeatother
+
+\begin{document}
+
+\section*{SDG Range Check Tests}
+Explore a number of different test cases. In each case, call \texttt{SDGs\{\}} with comma-separated numbers representing the SDGs (for example, those a degree project might support). The function stores the arguments away in '@SDGs', i.e., a variable name prefixed by '@'.\\
+
+% Test Case 1: \SDGs{1,9}, min=1, max=17 (All valid, should pass)
+\SDGs{1,9}
+\textbf{Test Case 1: All Valid (1, 9 in [1, 17])} \par
+\makeatletter
+\checkSDGRange{\@SDGs}{1}{17}
+\makeatother
+\par \vspace{1em}
+
+% Test Case 2: \SDGs{0,5,18}, min=1, max=17 (0 and 18 are invalid, should list them)
+\SDGs{0,5,18}
+\textbf{Test Case 2: Some Invalid (0, 18 out of [1, 17])} \par
+\makeatletter
+\checkSDGRange{\@SDGs}{1}{17}
+\makeatother
+\par \vspace{1em}
+
+% Test Case 3: \SDGs{10}, min=1, max=17 (Valid, should pass)
+\SDGs{10}
+\textbf{Test Case 3: Single Valid (10 in [1, 17])} \par
+\makeatletter
+\checkSDGRange{\@SDGs}{1}{17}
+\makeatother
+\par \vspace{1em}
+
+% Test Case 4: \SDGs{}, min=1, max=17 (Empty list, should pass silently by showing no invalid items)
+\SDGs{}
+\textbf{Test Case 4: Empty List} \par
+\makeatletter
+\checkSDGRange{\@SDGs}{1}{17}
+\makeatother
+\par \vspace{1em}
+
+% Test Case 5: \SDGs{20}, min=1, max=17 (Single invalid, should list 20)
+\SDGs{20}
+\textbf{Test Case 5: Single Invalid (20 out of [1, 17])} \par
+\makeatletter
+\checkSDGRange{\@SDGs}{1}{17}
+\makeatother
+\par \vspace{1em}
+
+% Test Case 6: \SDGs{1, 17}, min=1, max=17 (Boundaries)
+\SDGs{1,17}
+\textbf{Test Case 6: Boundaries (1, 17 in [1, 17])} \par
+\makeatletter
+\checkSDGRange{\@SDGs}{1}{17}
+\makeatother
+
+
+
+\end{document}
