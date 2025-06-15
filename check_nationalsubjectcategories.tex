@@ -1,0 +1,135 @@
+\documentclass{article}
+\usepackage{expl3} % Essential for expl3 functions
+\usepackage{xstring} % to use \IfInteger
+\usepackage[T1]{fontenc}
+
+\makeatletter
+% Define the user's macros for storing the nationalsubjectcategories list
+\let\@nationalsubjectcategories\@empty
+\newcommand{\nationalsubjectcategories}[1]{\def\@nationalsubjectcategories{#1}}
+
+% --- Expl3 Definitions for SDG Range Check ---
+\ExplSyntaxOn
+
+% Declare expl3 variables for the check process
+\seq_new:N \g_kththesis_invalid_NSCs_seq    % Stores items from the list that are out of range
+\bool_new:N \g_kththesis_all_NSCs_valid_bool % Flag to indicate if all items were within range
+
+\seq_const_from_clist:Nn \c_kththesis_all_NSCs_seq { 1,101,10101,10102,10103,10104,10105,10106,10199,102,10201,10202,10203,10204,10205,10206,10207,10208,10210,10211,10212,10213,10214,10299,103,10301,10302,10303,10304,10305,10307,10308,10399,104,10401,10402,10403,10404,10405,10406,10407,10408,10499,105,10501,10502,10503,10504,10505,10506,10507,10508,10509,10510,10599,106,10601,10604,10605,10606,10607,10608,10609,10610,10611,10612,10613,10614,10615,10616,10699,107,10799,2,201,20101,20102,20103,20104,20105,20106,20107,20109,20110,20199,202,20201,20202,20203,20204,20205,20206,20207,20208,20209,20299,203,20301,20302,20304,20305,20306,20307,20309,20310,20399,204,20402,20403,20405,20406,20407,20499,205,20501,20502,20503,20504,20505,20506,20599,206,20601,20602,20603,20604,20605,20606,20699,207,20702,20703,20704,20705,20707,20799,208,20801,20802,20803,20899,209,20901,20902,20903,20904,20905,20906,20909,20999,210,21002,21003,21004,21005,21099,211,21199,3,301,30101,30102,30103,30104,30105,30106,30107,30108,30109,30110,30111,30112,30113,30114,30115,30116,30117,30118,30199,302,30201,30202,30203,30204,30205,30206,30207,30208,30209,30211,30212,30213,30215,30216,30217,30218,30219,30220,30221,30222,30223,30224,30225,30226,30227,30228,30229,30230,30299,303,30301,30303,30304,30305,30306,30307,30308,30309,30310,30311,30312,30313,30314,30399,304,30401,30402,30403,30499,305,30501,30502,30599,4,401,40101,40102,40103,40104,40105,40106,40107,402,40201,403,40301,40302,40303,40399,404,40401,40402,405,40502,40504,40505,40506,40507,40599,5,501,50101,50102,502,50201,50202,50203,503,50301,50302,50304,50399,504,50401,50402,50404,50405,50406,505,50501,50503,506,50601,50604,507,50701,50702,50703,508,50801,50804,50805,509,50902,50903,50904,50905,50906,50907,50908,50909,50910,50911,50912,50999,6,601,60101,60102,60103,60104,60105,602,60201,60202,60203,60204,60205,60206,60207,603,60301,60302,60303,60304,60306,604,60407,60408,60409,60410,60411,60412,60413,60414,60415,60416,60417,60418,60419,605,60502,60503,60504,60599 }
+
+
+% --- Main function to check SDG range ---
+% #1 = comma-separated list of SDGs (e.g., "1,9")
+\cs_new_protected:Npn \kththesis_check_NSCs:n #1 {
+    %checking~"#1"\par
+    \typeout{checking~#1:~Actual="#1"} % Debugging: shows in .log file
+
+    % Clear results from previous runs of this function
+    \seq_gclear:N \g_kththesis_invalid_NSCs_seq
+    \bool_gset_true:N \g_kththesis_all_NSCs_valid_bool % Assume all items are valid until proven otherwise
+    \seq_set_split:Nne \l_tmpa_seq { , }  { #1 } % 'e' expansion to expand #1 before splitting
+    
+    %~value~is:~\seq_use:Nnnn \l_tmpa_seq { ~and~ } { ,~ } { ,~and~ } \par
+    % Iterate through each item in the sequence
+    \seq_map_variable:NNn \l_tmpa_seq \l_tmpa_tl {
+        % For robust error handling check if the input is not a number
+        % --- CRITICAL FIX: Check if the item is numeric first ---
+        \IfInteger{\l_tmpa_tl}
+        { % True: Item is numeric, proceed with comparison
+            % Compare the current item with the valid values
+            \seq_if_in:NVTF \c_kththesis_all_NSCs_seq {\l_tmpa_tl}
+            { % True branch: Item is within range (do nothing, it's valid)
+                \typeout{~~~~--~Item~is~valid.}
+            }
+            { % False branch: Item is invalid
+                \typeout{~~~~--~Item~is~invalid!}
+                \bool_gset_false:N \g_kththesis_all_NSCs_valid_bool % Mark the overall check as having invalid items
+                \seq_gput_right:Ne \g_kththesis_invalid_NSCs_seq {\l_tmpa_tl} % Add the _value_ of the invalid item to the sequence
+            }
+        }{
+        % False: Item is NOT numeric
+            \typeout{ ~-~Checking~item:~\tl_use:N \l_tmpa_tl\ (non-numeric)}
+            \bool_gset_false:N \g_kththesis_all_NSCs_valid_bool % Mark overall check as invalid
+            \seq_gput_right:Ne \g_kththesis_invalid_NSCs_seq { \l_tmpa_tl } % Add non-numeric item to invalid list
+        }
+    }
+    
+}
+
+% --- Wrapper macro for easy calling from standard LaTeX mode ---
+% This macro is what you will use in your document.
+% #1 = The comma-separated list of SDGs (e.g., from \@SDGs)
+\newcommand{\checkNSCs}[1]{
+    \ExplSyntaxOn % Activate expl3 syntax for the call to the expl3 function
+    \tl_if_empty:eTF {#1} {
+    Empty~list
+    }
+    {
+        % Call the expl3 core function to perform the check
+        \kththesis_check_NSCs:n {#1}
+    
+        % Report results based on the flags set by the expl3 function
+        \bool_if:NTF \g_kththesis_all_NSCs_valid_bool
+        { % All items were valid
+            All~national~subject~categories~are~valid.
+        }
+        { % Some items were invalid
+            The~following~national~subject~categories~are~invalid:~\seq_use:Nn \g_kththesis_invalid_NSCs_seq {,~} .
+            \PackageWarning{kththesis}{The~following~national~subject~categories~are~invalid:~\seq_use:Nn \g_kththesis_invalid_NSCs_seq {,~}.}%
+        }
+    }
+    \ExplSyntaxOff % Deactivate expl3 syntax
+}
+
+\newcommand{\checknationalsubjectcategories}[0]{
+\checkNSCs{\@nationalsubjectcategories}
+}
+\ExplSyntaxOff % End of all expl3 definitions
+\makeatother
+
+\begin{document}
+
+\section*{National subject categories Check Tests}
+Explore a number of different test cases. In each case, call \texttt{nationalsubjectcategories\{\}} with comma-separated numbers representing the nationalsubjectcategories (for example, those a degree project might support). The function stores the arguments away in '@nationalsubjectcategories', i.e., a variable name prefixed by '@'.\\
+
+How many categories are there:
+\ExplSyntaxOn
+\seq_count:N \c_kththesis_all_NSCs_seq
+\ExplSyntaxOff
+\par \vspace{1em}
+
+% Test Case 1: \nationalsubjectcategories{1,9}, min=1, max=17 (All valid, should pass)
+\nationalsubjectcategories{1, 101, 10101, 10102, 10103 }
+\textbf{Test Case 1: All Valid} \par
+\checknationalsubjectcategories
+\par \vspace{1em}
+
+% Test Case 2: \nationalsubjectcategories{0,5,18}, min=1, max=17 (0 and 18 are invalid, should list them)
+\nationalsubjectcategories{1, 101, 10101, 10102, 10103, 7, 701 }
+\textbf{Test Case 2: Some Invalid (7, 701)} \par
+\checknationalsubjectcategories
+\par \vspace{1em}
+
+% Test Case 3: \nationalsubjectcategories{10}, min=1, max=17 (Valid, should pass)
+\nationalsubjectcategories{10101}
+\textbf{Test Case 3: Single Valid} \par
+\checknationalsubjectcategories
+\par \vspace{1em}
+
+% Test Case 4: \nationalsubjectcategories{}, min=1, max=17 (Empty list, should pass silently by showing no invalid items)
+\nationalsubjectcategories{}
+\textbf{Test Case 4: Empty List} \par
+\checknationalsubjectcategories
+\par \vspace{1em}
+
+% Test Case 5: \nationalsubjectcategories{20}, min=1, max=17 (Single invalid, should list 20)
+\nationalsubjectcategories{ 701 }
+\textbf{Test Case 5: Single Invalid (701)} \par
+\checknationalsubjectcategories
+\par \vspace{1em}
+
+\nationalsubjectcategories{XXX, XXX}
+\textbf{Test Case 6: non-integers (xxx)} \par
+\checknationalsubjectcategories
+
+\end{document}
