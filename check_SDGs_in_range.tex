@@ -82,6 +82,7 @@
         }
         { % Some items were invalid
             The~following~SDGs~are~out~of~range~[#2-#3]:~\seq_use:Nn \g_kththesis_invalid_sdgs_seq {,~} .
+            \PackageWarning{kththesis}{The~following~SDGs~are~out~of~range~[#2-#3]:~\seq_use:Nn \g_kththesis_invalid_sdgs_seq {,~}.}%
         }
     }
     \ExplSyntaxOff % Deactivate expl3 syntax
