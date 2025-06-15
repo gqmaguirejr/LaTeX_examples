@@ -1,5 +1,6 @@
 \documentclass{article}
 \usepackage{expl3} % Essential for expl3 functions
+\usepackage{xstring} % to use \IfInteger
 \usepackage[T1]{fontenc}
 
 \makeatletter
@@ -16,6 +17,7 @@
 \int_new:N \l_kththesis_current_item_int   % Stores the current item from the list as an integer
 \seq_new:N \g_kththesis_invalid_sdgs_seq    % Stores items from the list that are out of range
 \bool_new:N \g_kththesis_all_sdgs_valid_bool % Flag to indicate if all items were within range
+
 
 % --- Main function to check SDG range ---
 % #1 = comma-separated list of SDGs (e.g., "1,9")
@@ -40,25 +42,32 @@
     %~value~is:~\seq_use:Nnnn \l_tmpa_seq { ~and~ } { ,~ } { ,~and~ } \par
     % Iterate through each item in the sequence
     \seq_map_variable:NNn \l_tmpa_seq \l_tmpa_tl {
-        % For robust error handling if input is not a number, consider using
-        % \int_from_tl:n and then check for errors, but for this problem,
-        % we assume numeric input.
-        %l_tmpa_tl~is:~\tl_use:N {\l_tmpa_tl}\par
-        \int_set:Nn \l_kththesis_current_item_int {\l_tmpa_tl}
-        % Debugging output for each item
-        \typeout{ -- Checking~item: \tl_use:N \l_tmpa_tl\ (int: \int_use:N \l_kththesis_current_item_int)}
-        % Compare the current item with the min/max range
-        % \bool_lazy_and:nTF checks if (item > min-1) AND (item < max+1)
-        \bool_lazy_and:nnTF
-            { \int_compare_p:nNn { \l_kththesis_current_item_int } > { \l_kththesis_check_min_int } }
-            { \int_compare_p:nNn { \l_kththesis_current_item_int } < { \l_kththesis_check_max_int } }
-        { % True branch: Item is within range (do nothing, it's valid)
-            \typeout{~~~~--~Item~is~within~range.}
-        }
-        { % False branch: Item is OUT of range
-            \typeout{~~~~--~Item~is~OUT~of~range!}
-            \bool_gset_false:N \g_kththesis_all_sdgs_valid_bool % Mark the overall check as having invalid items
-            \seq_gput_right:Ne \g_kththesis_invalid_sdgs_seq {\l_tmpa_tl} % Add the _value_ of the invalid item to the sequence
+        % For robust error handling check if the input is not a number
+        % --- CRITICAL FIX: Check if the item is numeric first ---
+        \IfInteger{\l_tmpa_tl}
+        { % True: Item is numeric, proceed with comparison
+            %l_tmpa_tl~is:~\tl_use:N {\l_tmpa_tl}\par
+            \int_set:Nn \l_kththesis_current_item_int {\l_tmpa_tl}
+            % Debugging output for each item
+            \typeout{ -- Checking~item: \tl_use:N \l_tmpa_tl\ (int: \int_use:N \l_kththesis_current_item_int)}
+            % Compare the current item with the min/max range
+            % \bool_lazy_and:nTF checks if (item > min-1) AND (item < max+1)
+            \bool_lazy_and:nnTF
+                { \int_compare_p:nNn { \l_kththesis_current_item_int } > { \l_kththesis_check_min_int } }
+                { \int_compare_p:nNn { \l_kththesis_current_item_int } < { \l_kththesis_check_max_int } }
+            { % True branch: Item is within range (do nothing, it's valid)
+                \typeout{~~~~--~Item~is~within~range.}
+            }
+            { % False branch: Item is OUT of range
+                \typeout{~~~~--~Item~is~OUT~of~range!}
+                \bool_gset_false:N \g_kththesis_all_sdgs_valid_bool % Mark the overall check as having invalid items
+                \seq_gput_right:Ne \g_kththesis_invalid_sdgs_seq {\l_tmpa_tl} % Add the _value_ of the invalid item to the sequence
+            }
+        }{
+        % False: Item is NOT numeric
+            \typeout{ ~-~Checking~item:~\tl_use:N \l_tmpa_tl\ (non-numeric)}
+            \bool_gset_false:N \g_kththesis_all_sdgs_valid_bool % Mark overall check as invalid
+            \seq_gput_right:Ne \g_kththesis_invalid_sdgs_seq { \l_tmpa_tl } % Add non-numeric item to invalid list
         }
     }
     
@@ -138,6 +147,8 @@ Explore a number of different test cases. In each case, call \texttt{SDGs\{\}} w
 \checkSDGs
 
 
-
+\SDGs{XXX, XXX}
+\textbf{Test Case 7: non-integers xxx in [1, 17])} \par
+\checkSDGs
 
 \end{document}
